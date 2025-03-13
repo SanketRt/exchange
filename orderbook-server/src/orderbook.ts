@@ -1,16 +1,29 @@
 import { Order, OrderBookLevel, OrderBookSnapshot, Trade } from './types';
+import { MatchingEngine } from './matching-engine';
 
 class OrderBook {
   private bids: Map<number, Order[]>;
   private asks: Map<number, Order[]>;
-  private trades: Trade[];
+  private trades: Map<string, Trade[]>; // Market -> Trades
   private updateId: number;
+  private matchingEngine: MatchingEngine | null = null;
 
   constructor() {
     this.bids = new Map();
     this.asks = new Map();
-    this.trades = [];
+    this.trades = new Map();
     this.updateId = 0;
+  }
+
+  /**
+   * Get the singleton MatchingEngine instance
+   */
+  getMatchingEngine(): MatchingEngine {
+    if (!this.matchingEngine) {
+      // Lazy load to avoid circular dependencies
+      this.matchingEngine = MatchingEngine.getInstance();
+    }
+    return this.matchingEngine;
   }
 
   addOrder(order: Order): void {
@@ -74,17 +87,18 @@ class OrderBook {
         matchingOrder.filledQuantity += fillQuantity;
 
         const trade: Trade = {
-          tradeId: this.trades.length + 1,
+          tradeId: this.getTotalTradesCount() + 1,
           price: matchingOrder.price,
           quantity: fillQuantity,
           timestamp: Date.now(),
           makerOrderId: matchingOrder.orderId,
           takerOrderId: order.orderId,
-          side: order.side
+          side: order.side,
+          market: order.market || 'BTC_USDC'
         };
 
         fills.push(trade);
-        this.trades.push(trade);
+        this.addTrade(trade);
 
         if (matchingOrder.remainingQuantity === 0) {
           matchingOrder.status = 'filled';
@@ -96,7 +110,24 @@ class OrderBook {
     return { fills, remainingQuantity };
   }
 
-  getSnapshot(): OrderBookSnapshot {
+  // Add a trade to the trades map
+  private addTrade(trade: Trade): void {
+    const market = trade.market || 'BTC_USDC';
+    const marketTrades = this.trades.get(market) || [];
+    marketTrades.push(trade);
+    this.trades.set(market, marketTrades);
+  }
+
+  // Get total number of trades across all markets
+  private getTotalTradesCount(): number {
+    let count = 0;
+    for (const trades of this.trades.values()) {
+      count += trades.length;
+    }
+    return count;
+  }
+
+  getSnapshot(market: string = 'BTC_USDC'): OrderBookSnapshot {
     const processOrders = (orders: Map<number, Order[]>): OrderBookLevel[] => {
       return Array.from(orders.entries())
         .map(([price, orders]) => ({
@@ -116,8 +147,9 @@ class OrderBook {
     };
   }
 
-  getRecentTrades(limit: number = 50): Trade[] {
-    return this.trades.slice(-limit);
+  getRecentTrades(market: string = 'BTC_USDC', limit: number = 50): Trade[] {
+    const marketTrades = this.trades.get(market) || [];
+    return marketTrades.slice(-limit);
   }
 
   getBestBid(): { price: number; quantity: number } | null {

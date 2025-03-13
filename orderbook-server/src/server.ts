@@ -30,7 +30,8 @@ app.get('/api/orderbook', (req, res) => {
 // Get recent trades
 app.get('/api/trades', (req, res) => {
   const limit = parseInt(req.query.limit as string) || 50;
-  const trades = orderbook.getRecentTrades(limit);
+  const market = req.query.market as string || 'BTC_USDC';
+  const trades = orderbook.getRecentTrades(market, limit);
   res.json(trades);
 });
 
