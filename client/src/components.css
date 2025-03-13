@@ -1,0 +1,361 @@
+/* Styles for all components */
+
+/* Price Chart Component */
+.price-chart-container {
+  width: 100%;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-primary);
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.chart-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.timeframe-selectors, .indicator-toggles {
+  display: flex;
+  gap: 2px;
+}
+
+.timeframe-selectors button, .indicator-toggles button {
+  background-color: transparent;
+  border: none;
+  color: #666;
+  padding: 4px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.timeframe-selectors button:hover, .indicator-toggles button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+}
+
+.timeframe-selectors button.active, .indicator-toggles button.active {
+  background-color: #2196f3;
+  color: white;
+}
+
+.chart-wrapper {
+  flex: 1;
+  width: 100%;
+  padding: 0;
+  position: relative;
+  min-height: 300px;
+}
+
+.loading {
+  color: #666;
+  font-size: 13px;
+  text-align: center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.chart-x-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* Order Form Component */
+.order-form-container {
+  padding: var(--spacing-md);
+  height: 100%;
+  overflow: auto;
+}
+
+.order-form h2 {
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-lg);
+}
+
+.form-row {
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.form-row label {
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.form-input, .form-select {
+  padding: var(--spacing-sm);
+  background-color: var(--background-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  width: 100%;
+}
+
+.submit-button {
+  background-color: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+
+.submit-button:hover {
+  opacity: 0.9;
+}
+
+.error-message {
+  color: var(--accent-red);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm);
+  border-radius: 4px;
+  background-color: rgba(255, 61, 0, 0.1);
+}
+
+.order-response {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--background-tertiary);
+  border-radius: 4px;
+}
+
+/* Trades Tab Component */
+.trades-tab {
+  height: 100%;
+  overflow: auto;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trades-table th {
+  padding: var(--spacing-sm);
+  text-align: right;
+  font-weight: normal;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.trades-table th:first-child {
+  text-align: left;
+}
+
+.trades-table td {
+  padding: var(--spacing-sm);
+  text-align: right;
+  font-size: var(--font-size-sm);
+}
+
+.trades-table td:first-child {
+  text-align: left;
+}
+
+.buy-row {
+  background-color: rgba(0, 200, 83, 0.05);
+}
+
+.sell-row {
+  background-color: rgba(255, 61, 0, 0.05);
+}
+
+.buy-price {
+  color: var(--accent-green);
+}
+
+.sell-price {
+  color: var(--accent-red);
+}
+
+/* Order Book Component */
+.orderbook {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.orderbook-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.orderbook-header div:first-child {
+  text-align: left;
+}
+
+.asks, .bids {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  text-align: right;
+  position: relative;
+}
+
+.order-row:hover {
+  background-color: var(--background-tertiary);
+}
+
+.ask-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 61, 0, 0.1);
+  z-index: 0;
+  width: calc(100% * var(--depth-percent, 0.5));
+}
+
+.bid-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 200, 83, 0.1);
+  z-index: 0;
+  width: calc(100% * var(--depth-percent, 0.5));
+}
+
+.price, .quantity, .total {
+  position: relative;
+  z-index: 1;
+}
+
+.price:first-child {
+  text-align: left;
+}
+
+.ask-price {
+  color: var(--accent-red);
+}
+
+.bid-price {
+  color: var(--accent-green);
+}
+
+.spread {
+  text-align: center;
+  padding: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  background-color: var(--background-tertiary);
+}
+
+/* Depth Chart Component */
+.depth-chart {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-md);
+}
+
+.chart-placeholder {
+  width: 100%;
+  text-align: center;
+}
+
+.chart-placeholder h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+}
+
+.chart-placeholder p {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+.mock-chart {
+  height: 150px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  padding: var(--spacing-md);
+  position: relative;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.bid-color {
+  background-color: var(--accent-green);
+}
+
+.ask-color {
+  background-color: var(--accent-red);
+}
+
+.chart-visual {
+  display: flex;
+  height: 60px;
+  position: relative;
+}
+
+.bid-area {
+  background: linear-gradient(to left, var(--accent-green), transparent);
+  flex: 1;
+}
+
+.ask-area {
+  background: linear-gradient(to right, var(--accent-red), transparent);
+  flex: 1;
+}
+
+.price-line {
+  width: 1px;
+  background-color: var(--text-secondary);
+  height: 100%;
+} 

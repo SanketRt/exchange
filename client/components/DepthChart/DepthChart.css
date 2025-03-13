@@ -1,0 +1,57 @@
+.depth-chart {
+    height: 100%;
+    width: 100%;
+    position: relative;
+    background-color: #1e222d;
+  }
+  
+  .depth-canvas {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .depth-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #8c8e94;
+  }
+  
+  /* Tooltip styles that can be used for interactive depth chart */
+  .depth-tooltip {
+    position: absolute;
+    background-color: rgba(46, 50, 65, 0.9);
+    border: 1px solid #3a3f4c;
+    border-radius: 4px;
+    padding: 10px;
+    color: #f0f4f8;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  
+  .tooltip-label {
+    color: #8c8e94;
+  }
+  
+  .tooltip-value {
+    font-weight: 600;
+  }
+  
+  .tooltip-value.buy {
+    color: #00c076;
+  }
+  
+  .tooltip-value.sell {
+    color: #f84960;
+  }

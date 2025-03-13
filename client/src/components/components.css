@@ -1,0 +1,251 @@
+/* Order Book Styles */
+.order-book-container {
+  background-color: #1e2026;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  max-height: 500px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.order-book-container h2 {
+  font-size: 16px;
+  margin-top: 0;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2b2f36;
+  color: #f0f4f8;
+}
+
+.order-book-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #848e9c;
+  padding: 0 5px 8px 5px;
+  border-bottom: 1px solid #2b2f36;
+}
+
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 5px;
+  font-size: 13px;
+  position: relative;
+  border-bottom: 1px solid rgba(43, 47, 54, 0.3);
+}
+
+.depth-visualization {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  opacity: 0.15;
+}
+
+.ask .depth-visualization {
+  background-color: #ef5350;
+  right: 0;
+}
+
+.bid .depth-visualization {
+  background-color: #26a69a;
+  right: 0;
+}
+
+.price-col, .quantity-col, .total-col {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.price-col {
+  text-align: left;
+}
+
+.quantity-col {
+  text-align: right;
+}
+
+.total-col {
+  text-align: right;
+}
+
+.ask-price {
+  color: #ef5350;
+}
+
+.bid-price {
+  color: #26a69a;
+}
+
+.spread-row {
+  padding: 8px 5px;
+  font-size: 12px;
+  color: #848e9c;
+  text-align: center;
+  background-color: rgba(43, 47, 54, 0.5);
+  margin: 5px 0;
+}
+
+/* Trade History Styles */
+.trade-history-container {
+  background-color: #1e2026;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  max-height: 500px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.trade-history-container h2 {
+  font-size: 16px;
+  margin-top: 0;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2b2f36;
+  color: #f0f4f8;
+}
+
+.trade-history-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #848e9c;
+  padding: 0 5px 8px 5px;
+  border-bottom: 1px solid #2b2f36;
+}
+
+.trade-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.trade-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(43, 47, 54, 0.3);
+}
+
+.trade-row.buy .price-col {
+  color: #26a69a;
+}
+
+.trade-row.sell .price-col {
+  color: #ef5350;
+}
+
+.time-col {
+  flex: 1.2;
+  text-align: left;
+}
+
+.amount-col {
+  flex: 1;
+  text-align: right;
+}
+
+.no-trades {
+  padding: 20px 0;
+  text-align: center;
+  color: #848e9c;
+  font-style: italic;
+}
+
+.loading {
+  padding: 20px 0;
+  text-align: center;
+  color: #848e9c;
+  font-style: italic;
+}
+
+/* Market Stats Styles */
+.market-stats {
+  background-color: #1e2026;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.market-stats h2 {
+  font-size: 16px;
+  margin-top: 0;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2b2f36;
+  color: #f0f4f8;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stat-item {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #848e9c;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #f0f4f8;
+}
+
+.stat-value.positive {
+  color: #26a69a;
+}
+
+.stat-value.negative {
+  color: #ef5350;
+}
+
+/* Responsive layout */
+.exchange-container {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.left-panel, .center-panel, .right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1200px) {
+  .exchange-container {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .center-panel {
+    grid-column: span 2;
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .exchange-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .center-panel {
+    grid-column: span 1;
+  }
+} 

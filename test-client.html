@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Trading Test</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .price {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .positive {
+      color: #4caf50;
+    }
+    .negative {
+      color: #f44336;
+    }
+    .connection-status {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #f44336;
+      margin-right: 10px;
+    }
+    .connected {
+      background-color: #4caf50;
+    }
+    .trades-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .trade-item {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    .trade-item:last-child {
+      border-bottom: none;
+    }
+    .buy {
+      color: #4caf50;
+    }
+    .sell {
+      color: #f44336;
+    }
+    .depth-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .depth-table th, .depth-table td {
+      padding: 8px;
+      text-align: right;
+    }
+    .depth-table th {
+      background-color: #f5f5f5;
+    }
+    .depth-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .asks td:first-child {
+      color: #f44336;
+    }
+    .bids td:first-child {
+      color: #4caf50;
+    }
+    button {
+      background-color: #4a4a4a;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button.active {
+      background-color: #2196f3;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    #chart-container {
+      height: 400px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebSocket Trading Test</h1>
+  
+  <div class="connection-status">
+    <div id="status-indicator" class="status-indicator"></div>
+    <span id="connection-text">Disconnected</span>
+  </div>
+  
+  <div class="controls">
+    <button id="connect-btn">Connect</button>
+    <button id="subscribe-trades">Subscribe to Trades</button>
+    <button id="subscribe-ticker">Subscribe to Ticker</button>
+  </div>
+  
+  <div class="dashboard">
+    <div class="card">
+      <h2>BTC/USDC</h2>
+      <div id="last-price" class="price">$0.00</div>
+      <div id="price-change">0.00 (0.00%)</div>
+      <div id="chart-container"></div>
+    </div>
+    
+    <div class="card">
+      <h2>Recent Trades</h2>
+      <div id="trades-list" class="trades-list"></div>
+    </div>
+  </div>
+  
+  <div class="dashboard">
+    <div class="card">
+      <h2>Bids</h2>
+      <table class="depth-table">
+        <thead>
+          <tr>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="bids-body" class="bids"></tbody>
+      </table>
+    </div>
+    
+    <div class="card">
+      <h2>Asks</h2>
+      <table class="depth-table">
+        <thead>
+          <tr>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="asks-body" class="asks"></tbody>
+      </table>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script>
+    // Elements
+    const statusIndicator = document.getElementById('status-indicator');
+    const connectionText = document.getElementById('connection-text');
+    const connectBtn = document.getElementById('connect-btn');
+    const subscribeTradesBtn = document.getElementById('subscribe-trades');
+    const subscribeTickerBtn = document.getElementById('subscribe-ticker');
+    const lastPriceEl = document.getElementById('last-price');
+    const priceChangeEl = document.getElementById('price-change');
+    const tradesListEl = document.getElementById('trades-list');
+    const bidsBodyEl = document.getElementById('bids-body');
+    const asksBodyEl = document.getElementById('asks-body');
+    
+    // WebSocket state
+    let socket = null;
+    let isConnected = false;
+    let chartInstance = null;
+    let priceData = [];
+    
+    // Initialize chart
+    function initializeChart() {
+      const ctx = document.createElement('canvas');
+      document.getElementById('chart-container').appendChild(ctx);
+      
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'BTC/USDC',
+            data: priceData,
+            borderColor: '#2196f3',
+            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'minute'
+              }
+            },
+            y: {
+              beginAtZero: false
+            }
+          },
+          animation: {
+            duration: 300
+          }
+        }
+      });
+    }
+    
+    // Connect to WebSocket
+    function connect() {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        console.log('Already connected or connecting');
+        return;
+      }
+      
+      socket = new WebSocket('ws://localhost:8080');
+      
+      socket.onopen = () => {
+        console.log('WebSocket connected');
+        isConnected = true;
+        updateConnectionStatus();
+      };
+      
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Received:', data);
+        
+        switch (data.type) {
+          case 'connection':
+            console.log('Connection established:', data.message);
+            break;
+            
+          case 'subscription':
+            console.log(`Subscribed to ${data.stream} successfully`);
+            break;
+            
+          case 'ticker':
+            updateTicker(data.data);
+            break;
+            
+          case 'trade':
+            updateTrades(data.data);
+            break;
+            
+          case 'depth':
+            updateDepth(data.data);
+            break;
+            
+          default:
+            console.log('Unknown message type:', data.type);
+        }
+      };
+      
+      socket.onclose = () => {
+        console.log('WebSocket disconnected');
+        isConnected = false;
+        updateConnectionStatus();
+      };
+      
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        isConnected = false;
+        updateConnectionStatus();
+      };
+    }
+    
+    // Update connection status UI
+    function updateConnectionStatus() {
+      if (isConnected) {
+        statusIndicator.classList.add('connected');
+        connectionText.textContent = 'Connected';
+        connectBtn.textContent = 'Disconnect';
+      } else {
+        statusIndicator.classList.remove('connected');
+        connectionText.textContent = 'Disconnected';
+        connectBtn.textContent = 'Connect';
+      }
+    }
+    
+    // Subscribe to a stream
+    function subscribe(stream) {
+      if (!isConnected) {
+        console.error('Cannot subscribe: not connected');
+        return;
+      }
+      
+      const subscriptionMessage = {
+        action: 'subscribe',
+        stream: stream
+      };
+      
+      socket.send(JSON.stringify(subscriptionMessage));
+      console.log(`Subscribing to ${stream}`);
+    }
+    
+    // Update ticker data
+    function updateTicker(data) {
+      lastPriceEl.textContent = `$${data.lastPrice.toFixed(2)}`;
+      lastPriceEl.className = data.priceChange >= 0 ? 'price positive' : 'price negative';
+      
+      const changeText = `${data.priceChange.toFixed(2)} (${data.priceChangePercent.toFixed(2)}%)`;
+      priceChangeEl.textContent = changeText;
+      priceChangeEl.className = data.priceChange >= 0 ? 'positive' : 'negative';
+      
+      // Update chart
+      priceData.push({
+        x: new Date(data.timestamp),
+        y: data.lastPrice
+      });
+      
+      // Keep only the last 60 points
+      if (priceData.length > 60) {
+        priceData.shift();
+      }
+      
+      if (chartInstance) {
+        chartInstance.update();
+      }
+    }
+    
+    // Update trades data
+    function updateTrades(data) {
+      const tradeItem = document.createElement('div');
+      tradeItem.className = `trade-item ${data.side}`;
+      
+      const price = document.createElement('span');
+      price.textContent = `$${data.price.toFixed(2)}`;
+      
+      const quantity = document.createElement('span');
+      quantity.textContent = `${data.quantity.toFixed(5)} BTC`;
+      
+      const time = document.createElement('span');
+      const date = new Date(data.timestamp);
+      time.textContent = date.toLocaleTimeString();
+      
+      tradeItem.appendChild(price);
+      tradeItem.appendChild(quantity);
+      tradeItem.appendChild(time);
+      
+      tradesListEl.insertBefore(tradeItem, tradesListEl.firstChild);
+      
+      // Keep only the last 20 trades
+      if (tradesListEl.children.length > 20) {
+        tradesListEl.removeChild(tradesListEl.lastChild);
+      }
+    }
+    
+    // Update depth data
+    function updateDepth(data) {
+      // Clear existing depth data
+      bidsBodyEl.innerHTML = '';
+      asksBodyEl.innerHTML = '';
+      
+      // Update bids
+      let bidTotal = 0;
+      data.bids.forEach(bid => {
+        const [price, amount] = bid;
+        bidTotal += price * amount;
+        
+        const row = document.createElement('tr');
+        
+        const priceCell = document.createElement('td');
+        priceCell.textContent = price.toFixed(2);
+        
+        const amountCell = document.createElement('td');
+        amountCell.textContent = amount.toFixed(5);
+        
+        const totalCell = document.createElement('td');
+        totalCell.textContent = bidTotal.toFixed(2);
+        
+        row.appendChild(priceCell);
+        row.appendChild(amountCell);
+        row.appendChild(totalCell);
+        
+        bidsBodyEl.appendChild(row);
+      });
+      
+      // Update asks
+      let askTotal = 0;
+      data.asks.forEach(ask => {
+        const [price, amount] = ask;
+        askTotal += price * amount;
+        
+        const row = document.createElement('tr');
+        
+        const priceCell = document.createElement('td');
+        priceCell.textContent = price.toFixed(2);
+        
+        const amountCell = document.createElement('td');
+        amountCell.textContent = amount.toFixed(5);
+        
+        const totalCell = document.createElement('td');
+        totalCell.textContent = askTotal.toFixed(2);
+        
+        row.appendChild(priceCell);
+        row.appendChild(amountCell);
+        row.appendChild(totalCell);
+        
+        asksBodyEl.appendChild(row);
+      });
+    }
+    
+    // Event listeners
+    connectBtn.addEventListener('click', () => {
+      if (isConnected) {
+        socket.close();
+      } else {
+        connect();
+      }
+    });
+    
+    subscribeTradesBtn.addEventListener('click', () => {
+      subscribe('trades@BTC_USDC');
+      subscribeTradesBtn.classList.add('active');
+    });
+    
+    subscribeTickerBtn.addEventListener('click', () => {
+      subscribe('ticker@BTC_USDC');
+      subscribeTickerBtn.classList.add('active');
+    });
+    
+    // Initialize
+    initializeChart();
+    connect(); // Auto-connect on page load
+  </script>
+</body>
+</html>

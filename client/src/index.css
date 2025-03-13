@@ -1,0 +1,137 @@
+/* Global resets and base styling */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  /* Global variables that will be accessible to all component stylesheets */
+  :root {
+    /* Color palette - these can be used in your component CSS files */
+    --background-primary: #121212;
+    --background-secondary: #1e1e1e;
+    --background-tertiary: #252525;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent-green: #00c853;
+    --accent-red: #ff3d00;
+    --accent-blue: #2196f3;
+    --border-color: #333333;
+    
+    /* Trading-specific colors */
+    --bid-color: #1b5e20;
+    --ask-color: #b71c1c;
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+  
+    /* Font sizes */
+    --font-size-xs: 10px;
+    --font-size-sm: 12px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 18px;
+  }
+  
+  /* Base body styling */
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  
+  /* Main app container layout */
+  .app-container {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+  
+  /* Header styling */
+  .header {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    background-color: var(--background-secondary);
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  /* Main content area */
+  .main-content {
+    display: grid;
+    grid-template-rows: 1fr 300px;
+    gap: var(--spacing-md);
+  }
+  
+  /* Common component container styling */
+  .component-container {
+    background-color: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 1200px) {
+    .app-container {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .main-content {
+      grid-template-rows: auto auto;
+    }
+  }
+  
+  /* Common utility classes */
+  .text-right {
+    text-align: right;
+  }
+  
+  .text-center {
+    text-align: center;
+  }
+  
+  .font-bold {
+    font-weight: 600;
+  }
+  
+  .text-success {
+    color: var(--accent-green);
+  }
+  
+  .text-danger {
+    color: var(--accent-red);
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--background-primary);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
