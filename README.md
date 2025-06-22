@@ -1,265 +1,304 @@
 # Cryptocurrency Exchange Platform
 
-This project is a cryptocurrency trading platform with a robust order book implementation and real-time data streaming via WebSockets. It consists of a React frontend client and a microservices-based backend architecture.
+A modern cryptocurrency trading platform with real-time market simulation, featuring interactive candlestick charts, order book visualization, and a complete trading interface. Built with React frontend and Node.js backend with realistic market data simulation.
+
+![Exchange Interface](media/test_frontend.png)
+*Live cryptocurrency exchange interface with real-time data updates*
+
+## Current Implementation Status
+
+**Fully Working Features:**
+- Real-time candlestick chart with 1-minute intervals
+- Interactive order book with live updates
+- Trade history with realistic market simulation
+- Order placement interface (buy/sell orders)
+- Market summary with live price updates
+- Professional trading UI with multiple timeframes
+- Responsive design for mobile and desktop
+
+**Real-time Updates:**
+- Price data updates every 3 seconds
+- Realistic market noise and volatility simulation
+- Dynamic chart scaling for optimal visualization
+- Live connection status indicators
 
 ## Project Structure
 
 ```
 /Exchange
-  /client - React frontend
+  /client           
     /public
     /src
       /components
-        OrderForm.js
-        OrderBook.js
-        TradesTab.js
-        DepthChart.js
-        PriceChart.js - Candlestick chart component
-      /services
-        WebSocketService.js - WebSocket client service
-      App.js
-      index.js
-      index.css
-      components.css
-      App.css
-  /orderbook-server - Backend services
-    /src
-      index.ts - Main server file
-      orderbook.ts - Order book implementation
-      types.ts - TypeScript types
-      server.ts - Express server setup
-      websocket.ts - WebSocket server implementation
-      matching-engine.ts - Order matching engine
-      market-data.ts - Market data service
-      database.ts - Database configuration and TimescaleDB setup
-  architecture.md - Backend architecture documentation
-  test-websocket-server.js - WebSocket test server
-  test-client.html - WebSocket test client
+        OrderForm.js                
+        OrderBook.js                
+        TradeHistory.js            
+        PriceChart.js            
+        MarketSummary.js            
+      App.js                       
+      App.css                      
+      index.js                     
+  /crypto-exchange-backend
+    server.js                       
+    package.json                   
+  README.md                        
+  media/
+    test_frontend.png              # UI screenshot
 ```
 
-## Setup and Installation
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js (v16 or higher)
-- PostgreSQL (v14 or higher)
-- Redis server
-- TimescaleDB extension (optional, for enhanced time-series performance)
+- npm or yarn package manager
 
-### Backend Setup (orderbook-server)
+### Backend Setup
 
-1. Install dependencies:
-   ```
-   cd orderbook-server
-   npm install
-   ```
-
-2. Configure environment variables:
+1. **Navigate to backend directory:**
    ```bash
-   # Create .env file with your database credentials
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=your_password
-   POSTGRES_DB=exchange
-   NODE_ENV=development
+   cd crypto-exchange-backend
    ```
 
-3. Start PostgreSQL and Redis services:
+2. **Install dependencies:**
    ```bash
-   # Start PostgreSQL (varies by system)
-   sudo systemctl start postgresql
-   
-   # Start Redis
-   redis-server
+   npm install express cors
    ```
 
-4. Start the server:
-   ```
-   npm run start:server
-   ```
-   This will start the Express server on port 3000.
-
-**Note on TimescaleDB:** The application will attempt to use TimescaleDB for optimized time-series performance but will gracefully fall back to standard PostgreSQL tables if TimescaleDB is not available.
-
-### Frontend Setup (client)
-
-1. Install dependencies:
-   ```
-   cd client
-   npm install
-   ```
-
-2. Start the React development server:
-   ```
+3. **Start the backend server:**
+   ```bash
    npm start
    ```
-   This will start the React development server and proxy API requests to the backend server on port 3000.
+   Server will start on `http://localhost:3000` with the following endpoints:
+   - `GET /api/v1/trades/BTC-USD` - Recent trades
+   - `GET /api/v1/orderbook/BTC-USD` - Current order book
+   - `POST /api/v1/order` - Place new order
+   - `GET /health` - Server health check
+
+### Frontend Setup
+
+1. **Navigate to frontend directory:**
+   ```bash
+   cd client
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Start the React development server:**
+   ```bash
+   npm start
+   ```
+   Frontend will be available at `http://localhost:3001`
 
 ## Features
 
-- Real-time order book display
-- Trade execution with price-time priority matching
-- Order placement (market and limit orders)
-- Trade history with real-time updates
-- Depth chart visualization
-- Live candlestick charts with WebSocket data streaming
-- Real-time ticker updates
-- Microservices architecture for scalability
-- Redis-based pub/sub for event distribution
-- TimescaleDB optimization for time-series data (optional)
+### Market Data Simulation
+- **Realistic Price Generation**: Multi-layered noise simulation with micro, small, medium, and large price movements
+- **Dynamic Volatility**: Varying market conditions with trend bias and random walk patterns
+- **Order Book Depth**: Live bid/ask spreads with realistic quantity distributions
+- **Trade Flow**: Continuous trade generation with natural buy/sell distributions
+
+### Trading Interface
+- **Interactive Charts**: Candlestick charts with 1H, 1D, 1W, 1M timeframes
+- **Technical Indicators**: Simple Moving Averages (SMA 9, SMA 21)
+- **Order Placement**: Market and limit orders with real-time validation
+- **Live Updates**: 3-second refresh cycle for all market data
+
+### User Experience
+- **Professional UI**: Dark theme with modern trading interface design
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+- **Real-time Feedback**: Live connection status and update timestamps
+- **Smooth Animations**: Fluid chart updates and price change indicators
 
 ## API Endpoints
 
-### Order Management
-- `POST /api/v1/order` - Place a new order
-  - Request body: 
-    ```json
-    {
-      "baseAsset": "BTC",
-      "quoteAsset": "USD",
-      "price": 35000,
-      "quantity": 0.5,
-      "side": "buy",
-      "type": "limit",
-      "kind": "ioc" // Optional
-    }
-    ```
-  - Response:
-    ```json
-    {
-      "orderId": "abc123",
-      "executedQty": 0.5,
-      "fills": [
-        {
-          "price": 35000,
-          "qty": 0.5,
-          "tradeId": 1
-        }
-      ]
-    }
-    ```
-
 ### Market Data
-- `GET /api/v1/orderbook/{market}` - Get current order book
-  - Example: `/api/v1/orderbook/BTC-USD`
-  - Response:
-    ```json
-    {
-      "bids": [["35000", "0.5"]],
-      "asks": [["36000", "0.3"]],
-      "updateId": 123,
-      "timestamp": 1640995200000
-    }
-    ```
+```javascript
+// Get current order book
+GET /api/v1/orderbook/BTC-USD
+Response: {
+  "bids": [["49500.00", "0.1234"], ...],
+  "asks": [["49600.00", "0.0987"], ...]
+}
 
-- `GET /api/v1/trades/{market}` - Get recent trades
-  - Example: `/api/v1/trades/BTC-USD`
-  - Response:
-    ```json
-    [
-      {
-        "price": "35000",
-        "quantity": "0.5",
-        "timestamp": 1640995200000,
-        "side": "buy"
-      }
-    ]
-    ```
-
-- `GET /api/v1/ticker/{market}` - Get 24h ticker statistics (if implemented)
-- `GET /api/v1/candles/{market}` - Get candlestick data (if implemented)
-
-## Development
-
-To work on both the client and server simultaneously, you can use the convenience script in orderbook-server:
-
-```
-cd orderbook-server
-npm run start
-```
-
-This will start both the backend server and the frontend client using concurrently.
-
-### Testing the API
-
-You can test the core functionality using curl:
-
-```bash
-# Place a buy order
-curl -X POST http://localhost:3000/api/v1/order \
-  -H "Content-Type: application/json" \
-  -d '{
-    "baseAsset": "BTC",
-    "quoteAsset": "USD",
-    "price": 35000,
-    "quantity": 0.5,
+// Get recent trades
+GET /api/v1/trades/BTC-USD
+Response: [
+  {
+    "tradeId": "trade_abc123",
+    "price": "49550.00",
+    "quantity": "0.0500",
     "side": "buy",
-    "type": "limit"
-  }'
-
-# Check the order book
-curl http://localhost:3000/api/v1/orderbook/BTC-USD
-
-# Place a matching sell order
-curl -X POST http://localhost:3000/api/v1/order \
-  -H "Content-Type: application/json" \
-  -d '{
-    "baseAsset": "BTC",
-    "quoteAsset": "USD",
-    "price": 35000,
-    "quantity": 0.3,
-    "side": "sell",
-    "type": "limit"
-  }'
-
-# Check if trades were executed
-curl http://localhost:3000/api/v1/trades/BTC-USD
+    "timestamp": "2024-01-15T10:30:00.000Z"
+  }
+]
 ```
 
-### WebSocket Testing
-
-You can test the WebSocket functionality using the test server and client:
-
+### Order Management
+```javascript
+// Place a new order
+POST /api/v1/order
+Request: {
+  "baseAsset": "BTC",
+  "quoteAsset": "USD",
+  "price": 49500,
+  "quantity": 0.1,
+  "side": "buy",
+  "type": "limit"
+}
+Response: {
+  "orderId": "order_xyz789",
+  "status": "filled",
+  "price": 49500,
+  "quantity": 0.1,
+  "total": "4950.00"
+}
 ```
-# Start the test WebSocket server
-node test-websocket-server.js
 
-# In another terminal, serve the test client
-python -m http.server 8000
+### Health Check
+```javascript
+// Server status
+GET /health
+Response: {
+  "status": "OK",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "uptime": 3600
+}
 ```
 
-Then open http://localhost:8000/test-client.html in your browser to view the WebSocket test interface.
+## UI Components
 
-## Troubleshooting
+### PriceChart Component
+- **Technology**: Chart.js with candlestick financial charts
+- **Features**: 
+  - Real-time 1-minute candlestick data
+  - Multiple timeframe selection (1H, 1D, 1W, 1M)
+  - SMA indicators with toggle controls
+  - Dynamic Y-axis scaling for optimal view
+  - Professional tooltip with OHLC data
+  - Smooth animations and updates
 
-### TimescaleDB Issues
-If you encounter TimescaleDB extension errors:
-- The application will automatically fall back to standard PostgreSQL
-- For production use, consider installing TimescaleDB for better performance:
-  ```bash
-  # Ubuntu/Debian
-  curl -s https://packagecloud.io/install/repositories/timescale/timescaledb/script.deb.sh | sudo bash
-  sudo apt install timescaledb-2-postgresql-16
-  ```
+### OrderBook Component
+- **Real-time bid/ask display**
+- **Price level aggregation**
+- **Visual depth indication**
+- **Spread calculation**
 
-### Database Connection Issues
-- Ensure PostgreSQL is running and accessible
-- Verify your `.env` file has correct database credentials
-- Check if the database `exchange` exists
+### TradeHistory Component
+- **Recent trades list**
+- **Buy/sell side indicators**
+- **Real-time trade updates**
+- **Price and volume display**
 
-### Redis Connection Issues
-- Ensure Redis server is running: `redis-server`
-- Check Redis connection: `redis-cli ping`
+### OrderForm Component
+- **Buy/sell order placement**
+- **Market/limit order types**
+- **Input validation**
+- **Balance calculations**
 
-## Backend Architecture
+## 🔧 Development
 
-The backend is built on a microservices architecture with the following components:
+### Testing the Full Stack
 
-1. **Order Processing Service** - Handles order validation, matching, and execution
-2. **Market Data Service** - Manages candlestick generation, ticker, and depth data
-3. **WebSocket Gateway** - Provides real-time data streaming to clients
-4. **Redis Pub/Sub** - Event bus for inter-service communication
-5. **Database Layer** - PostgreSQL with optional TimescaleDB for time-series optimization
+1. **Start both servers:**
+   ```bash
+   # Terminal 1: Backend
+   cd crypto-exchange-backend
+   npm start
 
-For more details, see [architecture.md](architecture.md).
+   # Terminal 2: Frontend  
+   cd client
+   npm start
+   ```
+
+2. **Test API endpoints:**
+   ```bash
+   # Check server health
+   curl http://localhost:3000/health
+
+   # Get market data
+   curl http://localhost:3000/api/v1/trades/BTC-USD
+   curl http://localhost:3000/api/v1/orderbook/BTC-USD
+
+   # Place a test order
+   curl -X POST http://localhost:3000/api/v1/order \
+     -H "Content-Type: application/json" \
+     -d '{
+       "baseAsset": "BTC",
+       "quoteAsset": "USD", 
+       "price": 49500,
+       "quantity": 0.1,
+       "side": "buy",
+       "type": "limit"
+     }'
+   ```
+
+3. **Monitor real-time updates:**
+   - Open browser to `http://localhost:3001`
+   - Watch live price updates every 3 seconds
+   - Verify chart animation and data flow
+   - Test order placement functionality
+
+### Current Technical Stack
+
+**Frontend:**
+- React 18 with functional components and hooks
+- Chart.js with financial candlestick charts
+- Modern CSS with flexbox/grid layouts
+- Responsive design principles
+
+**Backend:**
+- Node.js with Express framework
+- RESTful API architecture
+- CORS configuration for cross-origin requests
+- Real-time data generation algorithms
+
+**Data Simulation:**
+- Multi-layered price noise generation
+- Realistic order book simulation
+- Natural trade flow patterns
+- Dynamic market conditions
+
+## 🌐 Production Deployment
+
+For deployment to `sanketr.com/projects/exchange`:
+
+1. **Backend deployment** (Railway/Vercel/Heroku)
+2. **Frontend build** and static hosting
+3. **Environment configuration** for production APIs
+4. **CORS setup** for domain access
+
+See deployment guide in the documentation for detailed instructions.
+
+## 📈 Market Simulation Details
+
+### Price Generation Algorithm
+- **Base Price Range**: 45,000 - 55,000 USD (realistic BTC levels)
+- **Noise Layers**: 
+  - Micro movements: ±0.2%
+  - Small movements: ±0.5% 
+  - Medium movements: ±1.2%
+  - Large movements: ±2.5% (5% probability)
+- **Market Bias**: Weak trending with random walk
+- **Update Frequency**: Every 3 seconds with continuous data generation
+
+### Order Book Simulation
+- **Spread Management**: Dynamic bid/ask spreads with market maker simulation
+- **Depth Levels**: 25 price levels on each side
+- **Quantity Distribution**: Realistic order sizes with occasional whale orders
+- **Price Gaps**: Non-linear spacing with market noise
+
+## Performance Features
+
+- **Optimized Rendering**: Chart updates without full re-renders
+- **Memory Management**: Limited dataset size (120 candles max)
+- **Efficient API Calls**: Batched requests and error handling
+- **Responsive Updates**: Smooth 3-second refresh cycle
+- **Dynamic Scaling**: Auto-adjusting chart scales for optimal viewing
+
+
+
+---
