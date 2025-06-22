@@ -1,4 +1,27 @@
-import { Order, Trade } from './types';
+import { Order, Trade, ExtendedOrder } from './types';
+
+/**
+ * Market configuration interface
+ */
+export interface MarketConfig {
+  market: string;
+  baseAsset: string;
+  quoteAsset: string;
+  minPrice?: number;
+  maxPrice?: number;
+  tickSize?: number;
+  minQty?: number;
+  maxQty?: number;
+  stepSize?: number;
+}
+
+/**
+ * OrderBook processing result type
+ */
+export interface ProcessOrderResult {
+  trades: Trade[];
+  remainingOrder?: Order;
+}
 import { getWebSocketHandler } from './websocket';
 
 /**
@@ -7,6 +30,7 @@ import { getWebSocketHandler } from './websocket';
 export class MatchingEngine {
   private static instance: MatchingEngine;
   private orders: Map<string, Order> = new Map();
+  private orderBooks: Map<string, Map<string, Order>> = new Map();
 
   private constructor() {
     // Private constructor for singleton pattern
@@ -23,11 +47,23 @@ export class MatchingEngine {
   }
 
   /**
+   * Create an order book for a specific market
+   * @param marketConfig Market configuration or market symbol
+   */
+  public createOrderBook(marketConfig: MarketConfig | string): void {
+    const marketSymbol = typeof marketConfig === 'string' ? marketConfig : marketConfig.market;
+    if (!this.orderBooks.has(marketSymbol)) {
+      this.orderBooks.set(marketSymbol, new Map<string, Order>());
+      console.log(`Order book created for ${marketSymbol}`);
+    }
+  }
+
+  /**
    * Process an order against the orderbook for potential matches
    * @param order The order to process
-   * @returns Array of trades that were executed
+   * @returns Result containing trades executed and remaining order if any
    */
-  public processOrder(order: Order): Trade[] {
+  public processOrder(order: Order): ProcessOrderResult {
     // Store the order in our local map for tracking
     this.orders.set(order.orderId, order);
     
@@ -44,7 +80,11 @@ export class MatchingEngine {
       this.publishTrades(trades);
     }
     
-    return trades;
+    // Return both trades and remaining order information
+    return {
+      trades,
+      remainingOrder: order  // In a real implementation, this would be the updated order after matching
+    };
   }
 
   /**
@@ -118,6 +158,49 @@ export class MatchingEngine {
    */
   public getOrder(orderId: string): Order | undefined {
     return this.orders.get(orderId);
+  }
+
+  /**
+   * Cancel an order from the order book
+   * @param orderId Order ID to cancel
+   * @returns The cancelled order or undefined if not found
+   */
+  public cancelOrder(orderId: string): Order | undefined {
+    const order = this.orders.get(orderId);
+    if (order) {
+      // Remove the order from our records
+      this.orders.delete(orderId);
+      
+      // If the order is in an order book, also remove it from there
+      if (order.market && this.orderBooks.has(order.market)) {
+        const orderBook = this.orderBooks.get(order.market);
+        orderBook?.delete(orderId);
+      }
+      
+      return order;
+    }
+    return undefined;
+  }
+
+  /**
+   * Add an order to the appropriate order book
+   * @param order The order to add
+   */
+  public addOrder(order: Order): void {
+    if (!order.market) {
+      console.error('Cannot add order without market specified');
+      return;
+    }
+    
+    // Create order book if it doesn't exist
+    if (!this.orderBooks.has(order.market)) {
+      this.createOrderBook(order.market);
+    }
+    
+    // Add to orders map and appropriate order book
+    this.orders.set(order.orderId, order);
+    const orderBook = this.orderBooks.get(order.market);
+    orderBook?.set(order.orderId, order);
   }
 
   /**

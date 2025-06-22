@@ -149,6 +149,17 @@ class WebSocketHandler {
   public publishToStream(stream: string, data: any) {
     redisPub.publish(stream, JSON.stringify(data));
   }
+  
+  // Method to publish data to a specific user
+  public publishToUser(userId: string, eventType: string, data: any) {
+    // In a real system, we would have a way to map userId to specific WebSocket connections
+    // For now, we'll broadcast to all clients that are subscribed to a user-specific channel
+    const userChannel = `user@${userId}`;
+    this.publishToStream(userChannel, {
+      type: eventType,
+      data
+    });
+  }
 }
 
 let websocketHandler: WebSocketHandler | null = null;

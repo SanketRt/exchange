@@ -28,6 +28,23 @@ export interface Order {
   id?: string; // Alternative ID field (for compatibility)
 }
 
+export enum OrderStatus {
+  OPEN = 'open',
+  FILLED = 'filled',
+  PARTIALLY_FILLED = 'partially_filled',
+  CANCELLED = 'cancelled'
+}
+
+export enum OrderSide {
+  BUY = 'buy',
+  SELL = 'sell'
+}
+
+export enum OrderType {
+  LIMIT = 'limit',
+  MARKET = 'market'
+}
+
 export interface Trade {
   tradeId: string | number;
   price: number;
@@ -41,6 +58,8 @@ export interface Trade {
   feeAsset?: string; // Asset in which fee was collected
   buyOrderId?: string; // ID of the buy order
   sellOrderId?: string; // ID of the sell order
+  makerUserId?: string; // User ID of the maker
+  takerUserId?: string; // User ID of the taker
 }
 
 export interface OrderBookLevel {
@@ -95,4 +114,30 @@ export interface Ticker {
   low24h: number;
   volume24h: number;
   timestamp: number;
+}
+
+/**
+ * Market data for a specific trading pair
+ */
+export interface MarketData {
+  market: string;
+  lastPrice: number;
+  lastQuantity: number;
+  lastTradeTime: number;
+  volume24h: number;
+  priceChange24h: number;
+  priceChangePercent24h: number;
+  high24h: number;
+  low24h: number;
+  bestBid: number;
+  bestAsk: number;
+  updatedAt: number;
+}
+
+/**
+ * Extended Order interface with additional properties for the matching engine
+ */
+export interface ExtendedOrder extends Order {
+  isMarketMaker?: boolean;
+  notional?: number; // For market orders: quantity * price
 }

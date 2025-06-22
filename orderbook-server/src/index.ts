@@ -60,14 +60,14 @@ app.post('/api/v1/order', async (req, res) => {
     const matchingEngine = orderbook.getMatchingEngine();
     
     // Process the order through the matching engine
-    const trades = matchingEngine.processOrder(order);
+    const result = matchingEngine.processOrder(order);
     
     res.status(200).send({
       orderId,
       status: order.status,
       executedQty: order.filledQuantity,
       remainingQty: order.remainingQuantity,
-      fills: trades.map(trade => ({
+      fills: result.trades.map((trade: Trade) => ({
         price: trade.price,
         quantity: trade.quantity,
         tradeId: trade.tradeId
