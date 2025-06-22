@@ -19,20 +19,40 @@ const generateId = () => {
 // Mock data generators
 const generateMockTrades = () => {
   const trades = [];
-  const basePrice = 50000;
+  const basePrice = 45000 + Math.random() * 10000; // Realistic BTC range
   
-  for (let i = 0; i < 50; i++) {
-    const variance = (Math.random() - 0.5) * 1000;
-    const price = basePrice + variance;
-    const quantity = Math.random() * 0.1;
-    const side = Math.random() > 0.5 ? 'buy' : 'sell';
+  for (let i = 0; i < 100; i++) {
+    // Multiple noise layers for realistic price movements
+    const microMove = (Math.random() - 0.5) * 0.002; // 0.2% micro moves
+    const smallMove = (Math.random() - 0.5) * 0.005; // 0.5% small moves
+    const mediumMove = (Math.random() - 0.5) * 0.012; // 1.2% medium moves
+    
+    // Occasional larger moves (10% chance)
+    const largeMove = Math.random() < 0.1 ? (Math.random() - 0.5) * 0.025 : 0;
+    
+    // Random walk bias (weak trend)
+    const walkBias = Math.random() < 0.15 ? (Math.random() - 0.5) * 0.008 : 0;
+    
+    // Market maker spread simulation
+    const spreadNoise = (Math.random() - 0.5) * 0.001;
+    
+    const totalVariance = microMove + smallMove + mediumMove + largeMove + walkBias + spreadNoise;
+    const price = basePrice * (1 + totalVariance);
+    
+    // Realistic quantity with noise
+    const baseQuantity = 0.01 + Math.random() * 0.15; // 0.01 to 0.16 BTC
+    const quantityNoise = Math.random() < 0.3 ? Math.random() * 0.5 : 0; // 30% chance of larger order
+    const quantity = baseQuantity + quantityNoise;
+    
+    // More realistic side distribution (slight buy bias in bull markets)
+    const side = Math.random() > 0.48 ? 'buy' : 'sell'; // 52% buy, 48% sell
     
     trades.push({
       tradeId: `trade_${generateId()}`,
       price: price.toFixed(2),
       quantity: quantity.toFixed(4),
       side: side,
-      timestamp: new Date(Date.now() - (i * 30000)).toISOString()
+      timestamp: new Date(Date.now() - (i * Math.random() * 60000)).toISOString() // Random time distribution
     });
   }
   
@@ -40,21 +60,39 @@ const generateMockTrades = () => {
 };
 
 const generateMockOrderBook = () => {
-  const midPrice = 50000;
+  const midPrice = 45000 + Math.random() * 10000; // Realistic BTC range
   const bids = [];
   const asks = [];
   
-  // Generate bids (buy orders)
-  for (let i = 0; i < 20; i++) {
-    const price = midPrice - (i + 1) * 10;
-    const quantity = Math.random() * 0.5 + 0.1;
+  // Generate bids (buy orders) with realistic noise
+  for (let i = 0; i < 25; i++) {
+    // Non-linear price gaps (closer prices have smaller gaps)
+    const baseGap = 5 + (i * 2); // Start with $5 gaps, increase
+    const gapNoise = (Math.random() - 0.5) * 3; // ±$1.50 noise
+    const priceGap = baseGap + gapNoise;
+    
+    const price = midPrice - (priceGap * (i + 1));
+    
+    // Realistic quantity distribution (more noise)
+    const baseQuantity = 0.01 + Math.random() * 0.3; // 0.01 to 0.31 BTC
+    const quantityNoise = Math.random() < 0.2 ? Math.random() * 1.5 : 0; // 20% chance of whale order
+    const quantity = baseQuantity + quantityNoise;
+    
     bids.push([price.toFixed(2), quantity.toFixed(4)]);
   }
   
-  // Generate asks (sell orders)
-  for (let i = 0; i < 20; i++) {
-    const price = midPrice + (i + 1) * 10;
-    const quantity = Math.random() * 0.5 + 0.1;
+  // Generate asks (sell orders) with realistic noise
+  for (let i = 0; i < 25; i++) {
+    const baseGap = 5 + (i * 2);
+    const gapNoise = (Math.random() - 0.5) * 3;
+    const priceGap = baseGap + gapNoise;
+    
+    const price = midPrice + (priceGap * (i + 1));
+    
+    const baseQuantity = 0.01 + Math.random() * 0.3;
+    const quantityNoise = Math.random() < 0.2 ? Math.random() * 1.5 : 0;
+    const quantity = baseQuantity + quantityNoise;
+    
     asks.push([price.toFixed(2), quantity.toFixed(4)]);
   }
   

@@ -191,70 +191,48 @@ const PriceChart = () => {
     const now = new Date();
     const data = [];
     
-    let basePrice = 50000;
-    let trend = 0;
+    // Start with a realistic BTC price
+    let basePrice = 45000 + Math.random() * 10000; // Between 45k-55k
     
-    // More realistic market patterns
-    const patterns = [
-      { type: 'uptrend', length: 20, strength: 0.4 },
-      { type: 'downtrend', length: 15, strength: 0.35 },
-      { type: 'consolidation', length: 25, strength: 0.08 },
-      { type: 'volatility', length: 10, strength: 0.5 },
-      { type: 'recovery', length: 12, strength: 0.3 }
-    ];
-    
-    let patternIndex = 0;
-    let patternProgress = 0;
-    
-    const numCandles = 120; // More candles for better visual
+    const numCandles = 120;
     for (let i = numCandles - 1; i >= 0; i--) {
-      if (patternProgress >= patterns[patternIndex].length) {
-        patternIndex = (patternIndex + 1) % patterns.length;
-        patternProgress = 0;
-      }
+      const date = new Date(now.getTime() - (i * 1 * 60 * 1000)); // 1-minute candles
       
-      const currentPattern = patterns[patternIndex];
-      patternProgress++;
+      // Add multiple layers of noise for realistic movement
+      const microNoise = (Math.random() - 0.5) * 0.003; // 0.3% micro movements
+      const smallNoise = (Math.random() - 0.5) * 0.008; // 0.8% small movements  
+      const mediumNoise = (Math.random() - 0.5) * 0.015; // 1.5% medium movements
       
-      switch(currentPattern.type) {
-        case 'uptrend':
-          trend = currentPattern.strength * (1 - Math.cos(patternProgress / currentPattern.length * Math.PI)) / 2;
-          break;
-        case 'downtrend':
-          trend = -currentPattern.strength * (1 - Math.cos(patternProgress / currentPattern.length * Math.PI)) / 2;
-          break;
-        case 'consolidation':
-          trend = trend * 0.8 + (Math.random() - 0.5) * 0.03;
-          break;
-        case 'volatility':
-          trend = (Math.random() - 0.5) * currentPattern.strength;
-          break;
-        case 'recovery':
-          trend = currentPattern.strength * Math.sin(patternProgress / currentPattern.length * Math.PI);
-          break;
-      }
+      // Occasional large moves (5% chance of 2-4% move)
+      const largeMove = Math.random() < 0.05 ? (Math.random() - 0.5) * 0.04 : 0;
       
-      const date = new Date(now.getTime() - (i * 15 * 60 * 1000));
-      const dailyVolatility = 0.015; // Reduced for smoother movement
-      const patternVolatility = currentPattern.type === 'volatility' ? 0.025 : 0.008;
-      const totalVolatility = dailyVolatility + patternVolatility;
+      // Trend bias (very weak, changes randomly)
+      const trendBias = Math.random() < 0.1 ? (Math.random() - 0.5) * 0.01 : 0;
       
-      const randomFactor = (Math.random() - 0.5) * totalVolatility;
-      const trendFactor = trend;
-      const totalChange = trendFactor + randomFactor;
+      // Combine all noise sources
+      const totalChange = microNoise + smallNoise + mediumNoise + largeMove + trendBias;
       
       const open = basePrice;
       const close = basePrice * (1 + totalChange);
       
-      const rangeFactor = (0.3 + Math.random() * 0.4) * totalVolatility;
-      const high = Math.max(open, close) * (1 + rangeFactor);
-      const low = Math.min(open, close) * (1 - rangeFactor);
+      // Generate realistic high/low with multiple random factors
+      const wickNoise1 = Math.random() * 0.004; // 0.4% wick extension
+      const wickNoise2 = Math.random() * 0.003; // 0.3% additional wick
+      const wickBias = Math.random() < 0.3 ? Math.random() * 0.006 : 0; // 30% chance of longer wick
+      
+      // Separate noise for high and low
+      const highWick = Math.max(open, close) * (1 + wickNoise1 + wickBias);
+      const lowWick = Math.min(open, close) * (1 - wickNoise2 - wickBias);
+      
+      // Add some asymmetric wick noise
+      const asymmetricHigh = Math.random() < 0.2 ? highWick * (1 + Math.random() * 0.002) : highWick;
+      const asymmetricLow = Math.random() < 0.2 ? lowWick * (1 - Math.random() * 0.002) : lowWick;
       
       data.push({
         x: date.getTime(),
         o: parseFloat(open.toFixed(2)),
-        h: parseFloat(high.toFixed(2)),
-        l: parseFloat(low.toFixed(2)),
+        h: parseFloat(asymmetricHigh.toFixed(2)),
+        l: parseFloat(asymmetricLow.toFixed(2)),
         c: parseFloat(close.toFixed(2))
       });
       
@@ -271,7 +249,7 @@ const PriceChart = () => {
     setCandlesticks(prev => {
       const updated = [...prev];
       const lastCandle = updated[updated.length - 1];
-      const candlePeriod = 15 * 60 * 1000; // 15 minutes
+      const candlePeriod = 1 * 60 * 1000; // 1 minute
       
       newTrades.forEach(trade => {
         const tradeTime = new Date(trade.timestamp).getTime();
@@ -471,6 +449,36 @@ const PriceChart = () => {
         },
         y: {
           position: 'right',
+          min: function(context) {
+            // Dynamic Y-axis scaling - focus on recent data
+            const data = context.chart.data.datasets[0].data;
+            if (!data || data.length === 0) return undefined;
+            
+            // Get last 40 candles for better scaling
+            const recentData = data.slice(-40);
+            const allPrices = recentData.flatMap(candle => [candle.h, candle.l, candle.o, candle.c]);
+            const minPrice = Math.min(...allPrices);
+            const maxPrice = Math.max(...allPrices);
+            const range = maxPrice - minPrice;
+            
+            // Add 5% padding below minimum
+            return Math.max(0, minPrice - (range * 0.05));
+          },
+          max: function(context) {
+            // Dynamic Y-axis scaling - focus on recent data  
+            const data = context.chart.data.datasets[0].data;
+            if (!data || data.length === 0) return undefined;
+            
+            // Get last 40 candles for better scaling
+            const recentData = data.slice(-40);
+            const allPrices = recentData.flatMap(candle => [candle.h, candle.l, candle.o, candle.c]);
+            const minPrice = Math.min(...allPrices);
+            const maxPrice = Math.max(...allPrices);
+            const range = maxPrice - minPrice;
+            
+            // Add 5% padding above maximum
+            return maxPrice + (range * 0.05);
+          },
           ticks: {
             maxTicksLimit: 8,
             color: '#888',
@@ -587,7 +595,7 @@ const PriceChart = () => {
           </span>
         </div>
         <div className="chart-info">
-          <span>{candlesticks.length} candles • 15m intervals</span>
+          <span>{candlesticks.length} candles • 1m intervals</span>
         </div>
       </div>
     </div>
