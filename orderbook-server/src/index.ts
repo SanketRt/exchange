@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
-
 import express from "express";
+import cors from "cors";
 import http from "http";
 import { OrderInputSchema, Order, Trade } from "./types";
 import { orderbook } from "./orderbook";
@@ -9,10 +9,13 @@ import { serviceManager } from "./services/service-manager";
 import { redisService } from "./services/redis-service";
 import { initializeWebSocketServer } from "./websocket";
 
-// Load environment variables
-
-// Create Express server instance
 const app = express();
+
+// Enable CORS for all routes
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Create HTTP server
