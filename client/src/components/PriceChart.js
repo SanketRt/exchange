@@ -65,17 +65,24 @@ const PriceChart = () => {
   const [timeframe, setTimeframe] = useState('1d');
   const [showSMA, setShowSMA] = useState(true);
   const [lastPrice, setLastPrice] = useState(null);
+  const [priceChange, setPriceChange] = useState(null);
   const [trades, setTrades] = useState([]);
   const [candlesticks, setCandlesticks] = useState([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
 
-  // Fixed: Use correct API endpoints
+  const chartRef = useRef(null);
+
+  // API calls with full URLs for development
   const fetchOrderBook = async () => {
     try {
       const response = await fetch('http://localhost:3000/api/v1/orderbook/BTC-USD');
       if (!response.ok) throw new Error('Failed to fetch order book');
+      setIsConnected(true);
       return await response.json();
     } catch (error) {
       console.error('Error fetching order book:', error);
+      setIsConnected(false);
       return { bids: [], asks: [] };
     }
   };
@@ -84,21 +91,21 @@ const PriceChart = () => {
     try {
       const response = await fetch('http://localhost:3000/api/v1/trades/BTC-USD');
       if (!response.ok) throw new Error('Failed to fetch trades');
+      setIsConnected(true);
       return await response.json();
     } catch (error) {
       console.error('Error fetching trades:', error);
+      setIsConnected(false);
       return [];
     }
   };
-
-  const chartRef = useRef(null);
 
   useEffect(() => {
     // Generate initial candlesticks
     generateInitialCandlesticks();
     
     // Set up polling for real data
-    const interval = setInterval(fetchLatestData, 5000);
+    const interval = setInterval(fetchLatestData, 3000); // Faster updates
     
     return () => {
       clearInterval(interval);
@@ -116,19 +123,38 @@ const PriceChart = () => {
         fetchTrades()
       ]);
       
-      // Update last price from order book or trades
+      // Update last price and calculate change
       if (recentTrades && recentTrades.length > 0) {
         const latestTrade = recentTrades[recentTrades.length - 1];
-        setLastPrice(parseFloat(latestTrade.price));
+        const newPrice = parseFloat(latestTrade.price);
         
-        // Update trades state
+        // Calculate price change from previous price
+        if (lastPrice && lastPrice !== newPrice) {
+          const change = newPrice - lastPrice;
+          const changePercent = (change / lastPrice) * 100;
+          setPriceChange({ change, changePercent });
+        }
+        
+        setLastPrice(newPrice);
+        setLastUpdate(Date.now());
+        
+        // Update trades state with animation trigger
         setTrades(prev => {
           const newTrades = [...prev];
+          let hasNewTrades = false;
+          
           recentTrades.forEach(trade => {
             if (!newTrades.some(t => t.tradeId === trade.tradeId)) {
               newTrades.push(trade);
+              hasNewTrades = true;
             }
           });
+          
+          if (hasNewTrades) {
+            // Trigger a subtle chart animation
+            triggerChartUpdate();
+          }
+          
           return newTrades.slice(-200);
         });
         
@@ -138,10 +164,26 @@ const PriceChart = () => {
         // Use mid-price if no trades
         const bestBid = parseFloat(orderBook.bids[0][0] || orderBook.bids[0].price);
         const bestAsk = parseFloat(orderBook.asks[0][0] || orderBook.asks[0].price);
-        setLastPrice((bestBid + bestAsk) / 2);
+        const midPrice = (bestBid + bestAsk) / 2;
+        
+        if (lastPrice && lastPrice !== midPrice) {
+          const change = midPrice - lastPrice;
+          const changePercent = (change / lastPrice) * 100;
+          setPriceChange({ change, changePercent });
+        }
+        
+        setLastPrice(midPrice);
+        setLastUpdate(Date.now());
       }
     } catch (error) {
       console.error('Error fetching latest data:', error);
+      setIsConnected(false);
+    }
+  };
+
+  const triggerChartUpdate = () => {
+    if (chartRef.current && chartRef.current.chartInstance) {
+      chartRef.current.chartInstance.update('none'); // Update without animation
     }
   };
 
@@ -152,17 +194,19 @@ const PriceChart = () => {
     let basePrice = 50000;
     let trend = 0;
     
+    // More realistic market patterns
     const patterns = [
-      { type: 'uptrend', length: 15, strength: 0.3 },
-      { type: 'downtrend', length: 12, strength: 0.25 },
-      { type: 'consolidation', length: 20, strength: 0.1 },
-      { type: 'volatility', length: 8, strength: 0.4 }
+      { type: 'uptrend', length: 20, strength: 0.4 },
+      { type: 'downtrend', length: 15, strength: 0.35 },
+      { type: 'consolidation', length: 25, strength: 0.08 },
+      { type: 'volatility', length: 10, strength: 0.5 },
+      { type: 'recovery', length: 12, strength: 0.3 }
     ];
     
     let patternIndex = 0;
     let patternProgress = 0;
     
-    const numCandles = 100;
+    const numCandles = 120; // More candles for better visual
     for (let i = numCandles - 1; i >= 0; i--) {
       if (patternProgress >= patterns[patternIndex].length) {
         patternIndex = (patternIndex + 1) % patterns.length;
@@ -180,16 +224,19 @@ const PriceChart = () => {
           trend = -currentPattern.strength * (1 - Math.cos(patternProgress / currentPattern.length * Math.PI)) / 2;
           break;
         case 'consolidation':
-          trend = trend * 0.7 + (Math.random() - 0.5) * 0.05;
+          trend = trend * 0.8 + (Math.random() - 0.5) * 0.03;
           break;
         case 'volatility':
           trend = (Math.random() - 0.5) * currentPattern.strength;
           break;
+        case 'recovery':
+          trend = currentPattern.strength * Math.sin(patternProgress / currentPattern.length * Math.PI);
+          break;
       }
       
       const date = new Date(now.getTime() - (i * 15 * 60 * 1000));
-      const dailyVolatility = 0.02;
-      const patternVolatility = currentPattern.type === 'volatility' ? 0.03 : 0.01;
+      const dailyVolatility = 0.015; // Reduced for smoother movement
+      const patternVolatility = currentPattern.type === 'volatility' ? 0.025 : 0.008;
       const totalVolatility = dailyVolatility + patternVolatility;
       
       const randomFactor = (Math.random() - 0.5) * totalVolatility;
@@ -199,7 +246,7 @@ const PriceChart = () => {
       const open = basePrice;
       const close = basePrice * (1 + totalChange);
       
-      const rangeFactor = (0.2 + Math.random() * 0.3) * totalVolatility;
+      const rangeFactor = (0.3 + Math.random() * 0.4) * totalVolatility;
       const high = Math.max(open, close) * (1 + rangeFactor);
       const low = Math.min(open, close) * (1 - rangeFactor);
       
@@ -253,8 +300,9 @@ const PriceChart = () => {
         }
       });
       
-      if (updated.length > 100) {
-        return updated.slice(-100);
+      // Keep optimal number of candles for performance
+      if (updated.length > 120) {
+        return updated.slice(-120);
       }
       
       return updated;
@@ -265,6 +313,7 @@ const PriceChart = () => {
     if (candlesticks.length === 0) return;
     
     const sma9Data = calculateSMA(candlesticks, 9);
+    const sma21Data = calculateSMA(candlesticks, 21);
     
     const datasets = [
       {
@@ -273,33 +322,44 @@ const PriceChart = () => {
         type: 'candlestick',
         candlestick: {
           color: {
-            up: '#26a69a',
-            down: '#ef5350',
-            unchanged: '#999',
+            up: '#00d4aa',
+            down: '#ff6b6b',
+            unchanged: '#888',
           },
-          width: 3,
-          priceLineWidth: 2,
-        },
-        borderColor: context => {
-          const c = context.parsed?.c;
-          const o = context.parsed?.o;
-          return c >= o ? '#26a69a' : '#ef5350';
-        },
-        backgroundColor: context => {
-          const c = context.parsed?.c;
-          const o = context.parsed?.o;
-          return c >= o ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)';
+          borderColor: {
+            up: '#00d4aa',
+            down: '#ff6b6b',
+            unchanged: '#888',
+          },
+          wickColor: {
+            up: '#00d4aa',
+            down: '#ff6b6b',
+            unchanged: '#888',
+          }
         },
       }
     ];
     
     if (showSMA) {
       datasets.push({
-        label: '9-period SMA',
+        label: 'SMA(9)',
         data: sma9Data,
         type: 'line',
-        borderColor: '#f5a623',
-        borderWidth: 1.5,
+        borderColor: '#ffd93d',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        pointHoverRadius: 0,
+        z: 1
+      });
+      
+      datasets.push({
+        label: 'SMA(21)',
+        data: sma21Data,
+        type: 'line',
+        borderColor: '#6bcf7f',
+        borderWidth: 2,
         pointRadius: 0,
         tension: 0.1,
         fill: false,
@@ -313,13 +373,16 @@ const PriceChart = () => {
     setChartOptions({
       responsive: true,
       maintainAspectRatio: false,
-      animation: false,
+      animation: {
+        duration: 750,
+        easing: 'easeInOutQuart'
+      },
       layout: {
         padding: {
           left: 0,
-          right: 48,
+          right: 50,
           top: 20,
-          bottom: 0
+          bottom: 10
         }
       },
       plugins: {
@@ -328,16 +391,17 @@ const PriceChart = () => {
           position: 'top',
           align: 'start',
           labels: {
-            boxWidth: 6,
-            boxHeight: 6,
-            borderRadius: 3,
+            boxWidth: 8,
+            boxHeight: 8,
+            borderRadius: 4,
             usePointStyle: true,
             pointStyle: 'circle',
-            padding: 15,
+            padding: 20,
             color: '#e0e0e0',
             font: {
-              size: 11,
-              family: 'Inter'
+              size: 12,
+              family: 'Inter',
+              weight: '500'
             }
           }
         },
@@ -347,6 +411,13 @@ const PriceChart = () => {
         tooltip: {
           mode: 'index',
           intersect: false,
+          backgroundColor: 'rgba(30, 30, 30, 0.95)',
+          titleColor: '#fff',
+          bodyColor: '#e0e0e0',
+          borderColor: '#555',
+          borderWidth: 1,
+          cornerRadius: 8,
+          displayColors: false,
           callbacks: {
             title: (tooltipItems) => {
               const date = new Date(tooltipItems[0].raw.x);
@@ -356,13 +427,13 @@ const PriceChart = () => {
               const point = context.raw;
               if (point.o !== undefined) {
                 return [
-                  `O: $${point.o.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-                  `H: $${point.h.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-                  `L: $${point.l.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-                  `C: $${point.c.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                  `Open: $${point.o.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                  `High: $${point.h.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                  `Low: $${point.l.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                  `Close: $${point.c.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
                 ];
               } else if (point.y !== null) {
-                return `SMA: $${point.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                return `${context.dataset.label}: $${point.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
               }
               return null;
             }
@@ -384,9 +455,10 @@ const PriceChart = () => {
           },
           ticks: {
             maxRotation: 0,
-            maxTicksLimit: 6,
+            maxTicksLimit: 8,
+            color: '#888',
             font: {
-              size: 10
+              size: 11
             }
           },
           grid: {
@@ -394,15 +466,16 @@ const PriceChart = () => {
             drawBorder: false,
             drawOnChartArea: true,
             drawTicks: false,
-            color: 'rgba(150, 150, 150, 0.2)'
+            color: 'rgba(255, 255, 255, 0.08)'
           }
         },
         y: {
           position: 'right',
           ticks: {
-            maxTicksLimit: 6,
+            maxTicksLimit: 8,
+            color: '#888',
             callback: function(value) {
-              return '$' + value.toLocaleString();
+              return '$' + value.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
             },
             font: {
               size: 11
@@ -411,7 +484,7 @@ const PriceChart = () => {
           grid: {
             drawBorder: false,
             drawTicks: false,
-            color: 'rgba(150, 150, 150, 0.2)'
+            color: 'rgba(255, 255, 255, 0.08)'
           }
         }
       },
@@ -430,15 +503,28 @@ const PriceChart = () => {
     setShowSMA(!showSMA);
   };
 
+  const formatLastUpdate = () => {
+    const now = Date.now();
+    const diff = now - lastUpdate;
+    if (diff < 5000) return 'Just now';
+    if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+    return `${Math.floor(diff / 60000)}m ago`;
+  };
+
   return (
     <div className="price-chart-container">
       <div className="chart-header">
         <div className="symbol-info">
           <h2>BTC/USD</h2>
-          <div className="last-price">
-            <span className={lastPrice > 0 ? 'price positive' : 'price negative'}>
+          <div className="price-info">
+            <span className={`last-price ${priceChange?.change >= 0 ? 'positive' : 'negative'}`}>
               ${lastPrice ? lastPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'}
             </span>
+            {priceChange && (
+              <span className={`price-change ${priceChange.change >= 0 ? 'positive' : 'negative'}`}>
+                {priceChange.change >= 0 ? '+' : ''}${priceChange.change.toFixed(2)} ({priceChange.changePercent.toFixed(2)}%)
+              </span>
+            )}
           </div>
         </div>
         <div className="chart-controls">
@@ -473,7 +559,7 @@ const PriceChart = () => {
               className={showSMA ? 'active' : ''}
               onClick={toggleSMA}
             >
-              SMA(9)
+              SMA
             </button>
           </div>
         </div>
@@ -487,13 +573,21 @@ const PriceChart = () => {
             data={chartData} 
           />
         ) : (
-          <div className="loading">Loading chart data...</div>
+          <div className="loading">
+            <div className="loading-spinner"></div>
+            <span>Loading chart data...</span>
+          </div>
         )}
       </div>
       <div className="chart-footer">
         <div className="connection-status">
-          <span className="status-indicator connected"></span>
-          <span>Live</span>
+          <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></span>
+          <span className="status-text">
+            {isConnected ? `Live • ${formatLastUpdate()}` : 'Disconnected'}
+          </span>
+        </div>
+        <div className="chart-info">
+          <span>{candlesticks.length} candles • 15m intervals</span>
         </div>
       </div>
     </div>
