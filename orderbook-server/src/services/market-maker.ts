@@ -184,14 +184,12 @@ class MarketMakerService {
     // Place new orders
     const newOrderIds: string[] = [];
     newOrders.forEach(order => {
-      // Generate a unique ID for the order
-      const orderId = uuidv4();
-      newOrderIds.push(orderId);
+      // The order already has an orderId, so we can use that
+      newOrderIds.push(order.orderId);
 
       // Publish new order
       redisService.publish('new_order', {
         ...order,
-        id: orderId,
         userId: 'market-maker',
         source: 'market-maker'
       });
@@ -229,14 +227,16 @@ class MarketMakerService {
       const roundedQuantity = Math.floor(quantity / config.stepSize) * config.stepSize;
       
       orders.push({
+        orderId: uuidv4(),
         market: config.symbol,
         side: 'buy',
         type: 'limit',
+        kind: 'gtc', // Good Till Cancelled - standard for market maker orders
         price,
         quantity: roundedQuantity,
         remainingQuantity: roundedQuantity,
         filledQuantity: 0,
-        status: 'new',
+        status: 'open',
         timestamp: Date.now()
       });
     }
@@ -269,14 +269,16 @@ class MarketMakerService {
       const roundedQuantity = Math.floor(quantity / config.stepSize) * config.stepSize;
       
       orders.push({
+        orderId: uuidv4(),
         market: config.symbol,
         side: 'sell',
         type: 'limit',
+        kind: 'gtc', // Good Till Cancelled - standard for market maker orders
         price,
         quantity: roundedQuantity,
         remainingQuantity: roundedQuantity,
         filledQuantity: 0,
-        status: 'new',
+        status: 'open',
         timestamp: Date.now()
       });
     }

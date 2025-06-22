@@ -3,29 +3,29 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  passwordHash: string;
+  passwordHash!: string;
 
   @Column({ nullable: true })
-  fullName: string;
+  fullName?: string;
 
   @Column({ default: false })
-  isVerified: boolean;
+  isVerified!: boolean;
 
   @Column({ default: false })
-  is2FAEnabled: boolean;
+  is2FAEnabled!: boolean;
 
   @Column({ nullable: true })
-  twoFASecret: string;
+  twoFASecret?: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
