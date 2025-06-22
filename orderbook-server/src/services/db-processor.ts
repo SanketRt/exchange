@@ -3,7 +3,7 @@ import { getDataSource } from '../db/database';
 import { Order } from '../db/entities/Order';
 import { Trade } from '../db/entities/Trade';
 import { Candle } from '../db/entities/Candle';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, LessThanOrEqual, MoreThanOrEqual, LessThan } from 'typeorm';
 
 /**
  * Database Processor Service
@@ -83,17 +83,19 @@ class DbProcessorService {
 
     try {
       // Check if order already exists
-      let order = await this.orderRepository.findOne({ where: { id: orderData.id } });
+      const existingOrder = await this.orderRepository.findOneBy({ id: orderData.id });
       
-      if (order) {
-        // Update existing order
-        Object.assign(order, orderData);
+      if (existingOrder) {
+        // Update existing order - merge the data
+        this.orderRepository.merge(existingOrder, orderData);
+        const savedOrder = await this.orderRepository.save(existingOrder);
+        return savedOrder as unknown as Order;
       } else {
         // Create new order
-        order = this.orderRepository.create(orderData);
+        const newOrder = this.orderRepository.create(orderData);
+        const savedOrder = await this.orderRepository.save(newOrder);
+        return savedOrder as unknown as Order;
       }
-
-      return await this.orderRepository.save(order);
     } catch (error) {
       console.error('Error saving order:', error);
       throw error;
@@ -111,12 +113,14 @@ class DbProcessorService {
 
     try {
       // Make sure timestamp is a Date object
-      if (typeof tradeData.timestamp === 'number') {
-        tradeData.timestamp = new Date(tradeData.timestamp);
+      const processedTradeData = { ...tradeData };
+      if (typeof processedTradeData.timestamp === 'number') {
+        processedTradeData.timestamp = new Date(processedTradeData.timestamp);
       }
       
-      const trade = this.tradeRepository.create(tradeData);
-      return await this.tradeRepository.save(trade);
+      const trade = this.tradeRepository.create(processedTradeData);
+      const savedTrade = await this.tradeRepository.save(trade);
+      return savedTrade as unknown as Trade;
     } catch (error) {
       console.error('Error saving trade:', error);
       throw error;
@@ -133,29 +137,30 @@ class DbProcessorService {
     }
 
     try {
-      // Make sure timestamp is a Date object
-      if (typeof candleData.timestamp === 'number') {
-        candleData.timestamp = new Date(candleData.timestamp);
+      // Process candle data
+      const processedCandleData = { ...candleData };
+      if (typeof processedCandleData.timestamp === 'number') {
+        processedCandleData.timestamp = new Date(processedCandleData.timestamp);
       }
       
       // Check if candle already exists
-      let candle = await this.candleRepository.findOne({
-        where: {
-          market: candleData.market,
-          timeframe: candleData.timeframe,
-          timestamp: candleData.timestamp
-        }
+      const existingCandle = await this.candleRepository.findOneBy({
+        market: processedCandleData.market,
+        timeframe: processedCandleData.timeframe,
+        timestamp: processedCandleData.timestamp
       });
       
-      if (candle) {
-        // Update existing candle
-        Object.assign(candle, candleData);
+      if (existingCandle) {
+        // Update existing candle - merge the data
+        this.candleRepository.merge(existingCandle, processedCandleData);
+        const savedCandle = await this.candleRepository.save(existingCandle);
+        return savedCandle as unknown as Candle;
       } else {
         // Create new candle
-        candle = this.candleRepository.create(candleData);
+        const newCandle = this.candleRepository.create(processedCandleData);
+        const savedCandle = await this.candleRepository.save(newCandle);
+        return savedCandle as unknown as Candle;
       }
-
-      return await this.candleRepository.save(candle);
     } catch (error) {
       console.error('Error saving candle:', error);
       throw error;
@@ -179,13 +184,11 @@ class DbProcessorService {
       throw new Error('Candle repository not initialized');
     }
 
-    return this.candleRepository.find({
+    return await this.candleRepository.find({
       where: {
         market,
         timeframe,
-        timestamp: {
-          $lte: endTime
-        }
+        timestamp: LessThanOrEqual(endTime)
       },
       order: {
         timestamp: 'DESC'
@@ -209,12 +212,10 @@ class DbProcessorService {
       throw new Error('Trade repository not initialized');
     }
 
-    return this.tradeRepository.find({
+    return await this.tradeRepository.find({
       where: {
         market,
-        timestamp: {
-          $lte: endTime
-        }
+        timestamp: LessThanOrEqual(endTime)
       },
       order: {
         timestamp: 'DESC'
@@ -240,19 +241,14 @@ class DbProcessorService {
       throw new Error('Repositories not initialized');
     }
 
-    // Get trades within the timeframe for this market
-    const trades = await this.tradeRepository.find({
-      where: {
-        market,
-        timestamp: {
-          $gte: startTime,
-          $lt: endTime
-        }
-      },
-      order: {
-        timestamp: 'ASC'
-      }
-    });
+    // Get trades within the timeframe for this market using query builder
+    const trades = await this.tradeRepository
+      .createQueryBuilder('trade')
+      .where('trade.market = :market', { market })
+      .andWhere('trade.timestamp >= :startTime', { startTime })
+      .andWhere('trade.timestamp < :endTime', { endTime })
+      .orderBy('trade.timestamp', 'ASC')
+      .getMany();
 
     if (trades.length === 0) {
       return null;
@@ -277,8 +273,8 @@ class DbProcessorService {
       quoteVolume += quantity * price;
     }
 
-    // Create candle entity
-    const candle = this.candleRepository.create({
+    // Create candle data object
+    const candleData = {
       market,
       timeframe,
       timestamp: startTime,
@@ -289,9 +285,12 @@ class DbProcessorService {
       volume,
       quoteVolume,
       trades: trades.length
-    });
+    };
 
-    return await this.candleRepository.save(candle);
+    // Create and save candle entity
+    const candle = this.candleRepository.create(candleData);
+    const savedCandle = await this.candleRepository.save(candle);
+    return savedCandle as unknown as Candle;
   }
 }
 
