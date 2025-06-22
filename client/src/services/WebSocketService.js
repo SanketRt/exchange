@@ -1,206 +1,137 @@
-/**
- * WebSocket service for real-time data streaming
- */
+// WebSocket service for real-time market data
 class WebSocketService {
   constructor() {
-    this.socket = null;
-    this.subscribers = {
-      'trades': new Set(),
-      'depth': new Set(),
-      'ticker': new Set(),
-      'connectionStatus': new Set()
-    };
+    this.ws = null;
+    this.subscribers = new Map();
     this.isConnected = false;
-    this.reconnectTimeout = null;
+    this.reconnectInterval = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.lastMessages = new Map(); // Cache for last message per stream
   }
 
   connect() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    const wsUrl = 'ws://localhost:3000/ws';
-    
-    this.socket = new WebSocket(wsUrl);
-    
-    this.socket.onopen = () => {
-      console.log('WebSocket connected');
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-      this.notifySubscribers('connectionStatus', { connected: true });
-
-      // Resubscribe to previous streams if any
-      const streams = this.getActiveStreams();
-      if (streams.length > 0) {
-        this.subscribe(streams);
-      }
-    };
-    
-    this.socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.stream) {
-          // Extract stream type (trades, depth, ticker)
-          const streamParts = message.stream.split('@');
-          const streamType = streamParts[0];
-          
-          // Store the latest message for this stream
-          this.lastMessages.set(message.stream, message.data);
-          
-          // Notify subscribers
-          if (this.subscribers[streamType]) {
-            this.notifySubscribers(streamType, {
-              stream: message.stream,
-              data: message.data
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    };
-    
-    this.socket.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.code, event.reason);
-      this.isConnected = false;
-      this.notifySubscribers('connectionStatus', { connected: false });
+    try {
+      // Try to connect to WebSocket server
+      this.ws = new WebSocket('ws://localhost:3000');
       
-      // Attempt to reconnect
-      this.attemptReconnect();
-    };
-    
-    this.socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-  }
-  
-  attemptReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnect attempts reached');
-      return;
-    }
-    
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    console.log(`Attempting to reconnect in ${delay}ms`);
-    
-    clearTimeout(this.reconnectTimeout);
-    this.reconnectTimeout = setTimeout(() => {
-      this.reconnectAttempts++;
-      this.connect();
-    }, delay);
-  }
-  
-  disconnect() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
-    clearTimeout(this.reconnectTimeout);
-  }
-  
-  subscribe(streams) {
-    if (!Array.isArray(streams)) {
-      streams = [streams];
-    }
-    
-    if (!this.isConnected) {
-      console.warn('WebSocket not connected, attempting to connect first');
-      this.connect();
-      return;
-    }
-    
-    const message = {
-      type: 'subscribe',
-      streams: streams
-    };
-    
-    this.socket.send(JSON.stringify(message));
-  }
-  
-  unsubscribe(streams) {
-    if (!Array.isArray(streams)) {
-      streams = [streams];
-    }
-    
-    if (!this.isConnected) {
-      console.warn('WebSocket not connected');
-      return;
-    }
-    
-    const message = {
-      type: 'unsubscribe',
-      streams: streams
-    };
-    
-    this.socket.send(JSON.stringify(message));
-  }
-  
-  addSubscriber(streamType, callback) {
-    if (!this.subscribers[streamType]) {
-      this.subscribers[streamType] = new Set();
-    }
-    
-    this.subscribers[streamType].add(callback);
-    
-    // Send the last message for this stream type if available
-    if (streamType !== 'connectionStatus') {
-      for (const [stream, data] of this.lastMessages.entries()) {
-        if (stream.startsWith(streamType)) {
-          callback({
-            stream,
-            data
-          });
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        
+        // Subscribe to market data streams
+        this.subscribe('ticker');
+        this.subscribe('trades');
+        this.subscribe('orderbook');
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleMessage(data);
+        } catch (error) {
+          console.warn('Failed to parse WebSocket message:', error);
         }
-      }
+      };
+
+      this.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.isConnected = false;
+        this.attemptReconnect();
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        this.isConnected = false;
+      };
+
+    } catch (error) {
+      console.error('Failed to establish WebSocket connection:', error);
+      this.isConnected = false;
+    }
+  }
+
+  attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      
+      setTimeout(() => {
+        this.connect();
+      }, 5000); // Retry after 5 seconds
     } else {
-      // Send current connection status
-      callback({ connected: this.isConnected });
+      console.log('Max reconnection attempts reached');
     }
+  }
+
+  subscribe(channel) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'subscribe',
+        channel: channel
+      };
+      this.ws.send(JSON.stringify(message));
+    }
+  }
+
+  handleMessage(data) {
+    const { type, channel } = data;
     
-    return () => this.removeSubscriber(streamType, callback);
-  }
-  
-  removeSubscriber(streamType, callback) {
-    if (this.subscribers[streamType]) {
-      this.subscribers[streamType].delete(callback);
-    }
-  }
-  
-  notifySubscribers(streamType, data) {
-    if (this.subscribers[streamType]) {
-      this.subscribers[streamType].forEach(callback => {
+    if (this.subscribers.has(channel)) {
+      const callbacks = this.subscribers.get(channel);
+      callbacks.forEach(callback => {
         try {
           callback(data);
         } catch (error) {
-          console.error('Error in WebSocket subscriber callback:', error);
+          console.error('Error in subscriber callback:', error);
         }
       });
     }
   }
-  
-  getActiveStreams() {
-    const activeStreams = [];
-    
-    if (this.subscribers['trades'].size > 0) {
-      activeStreams.push('trades@BTC_USDC');
+
+  addSubscriber(channel, callback) {
+    if (!this.subscribers.has(channel)) {
+      this.subscribers.set(channel, new Set());
     }
     
-    if (this.subscribers['depth'].size > 0) {
-      activeStreams.push('depth@BTC_USDC');
+    this.subscribers.get(channel).add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const channelSubscribers = this.subscribers.get(channel);
+      if (channelSubscribers) {
+        channelSubscribers.delete(callback);
+        if (channelSubscribers.size === 0) {
+          this.subscribers.delete(channel);
+        }
+      }
+    };
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
     }
     
-    if (this.subscribers['ticker'].size > 0) {
-      activeStreams.push('ticker@BTC_USDC');
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
     }
     
-    return activeStreams;
+    this.subscribers.clear();
+    this.isConnected = false;
+  }
+
+  // Send message to server
+  send(message) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
   }
 }
 
-// Create a singleton instance
+// Create singleton instance
 const webSocketService = new WebSocketService();
 
 export default webSocketService;
