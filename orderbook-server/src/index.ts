@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from "express";
 import http from "http";
 import { OrderInputSchema, Order, Trade } from "./types";
@@ -5,10 +8,8 @@ import { orderbook } from "./orderbook";
 import { serviceManager } from "./services/service-manager";
 import { redisService } from "./services/redis-service";
 import { initializeWebSocketServer } from "./websocket";
-import * as dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config();
 
 // Create Express server instance
 const app = express();
