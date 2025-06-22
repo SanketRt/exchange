@@ -11,6 +11,7 @@ dotenv.config();
 class Database {
   private static instance: Database;
   private dataSource: DataSource | null = null;
+  private isTimescaleDBEnabled: boolean = false;
 
   private constructor() {}
 
@@ -40,7 +41,7 @@ class Database {
 
     await this.dataSource.initialize();
     
-    // Initialize TimescaleDB hypertables after connection
+    // Try to initialize TimescaleDB, but continue if it fails
     await this.initializeTimescaleDB();
     
     console.log('Database connection established');
@@ -53,10 +54,13 @@ class Database {
     }
 
     try {
-      // Check if TimescaleDB extension is installed
+      // Check if TimescaleDB extension is available and create it
       await this.dataSource.query(`
         CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
       `);
+
+      console.log('TimescaleDB extension enabled');
+      this.isTimescaleDBEnabled = true;
 
       // Convert candles table to a hypertable if it's not already
       const isHypertable = await this.dataSource.query(`
@@ -96,8 +100,9 @@ class Database {
 
       console.log('TimescaleDB initialized successfully');
     } catch (error) {
-      console.error('Error initializing TimescaleDB:', error);
-      throw error;
+      console.warn('TimescaleDB not available, continuing with regular PostgreSQL:', (error as Error).message);
+      this.isTimescaleDBEnabled = false;
+      // Don't throw the error - continue without TimescaleDB
     }
   }
 
@@ -106,6 +111,10 @@ class Database {
       throw new Error('Database is not initialized');
     }
     return this.dataSource;
+  }
+
+  public isTimescaleEnabled(): boolean {
+    return this.isTimescaleDBEnabled;
   }
 
   public async disconnect(): Promise<void> {
