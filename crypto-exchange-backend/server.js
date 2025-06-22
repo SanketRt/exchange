@@ -4,12 +4,26 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Production CORS configuration
 app.use(cors({
-  origin: 'http://localhost:3001', // React dev server
+  origin: [
+    'https://sanketr.com',
+    'https://www.sanketr.com', 
+    'http://localhost:3001' // for development
+  ],
   credentials: true
 }));
-app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    message: 'Crypto Exchange API is running'
+  });
+});
 
 // Simple ID generator (instead of uuid)
 const generateId = () => {
@@ -156,15 +170,6 @@ app.post('/api/v1/order', (req, res) => {
   }
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -192,25 +197,13 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Crypto Exchange Backend Server`);
-  console.log(`📍 Running on: http://localhost:${PORT}`);
-  console.log(`🕐 Started at: ${new Date().toISOString()}`);
-  console.log(`\n📊 Available endpoints:`);
-  console.log(`   GET  /api/v1/trades/BTC-USD`);
-  console.log(`   GET  /api/v1/orderbook/BTC-USD`);
-  console.log(`   POST /api/v1/order`);
-  console.log(`   GET  /health`);
-  console.log(`   GET  / (info)`);
-  console.log(`\n✅ Server ready for connections!`);
+  console.log(`🚀 Crypto Exchange API running on port ${PORT}`);
+  console.log(`📊 Market simulation active - generating live data every 3 seconds`);
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\n👋 Shutting down server...');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n👋 Shutting down server...');
-  process.exit(0);
-});
+// Keep-alive for production
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    console.log(`💹 Exchange simulation running - ${new Date().toISOString()}`);
+  }, 60000); // Log every minute
+}
