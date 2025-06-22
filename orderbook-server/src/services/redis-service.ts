@@ -1,6 +1,5 @@
-import Redis from 'redis';
+import { createClient, RedisClientType } from 'redis';
 import * as dotenv from 'dotenv';
-import { promisify } from 'util';
 
 dotenv.config();
 
@@ -9,67 +8,77 @@ dotenv.config();
  */
 class RedisService {
   private static instance: RedisService;
-  private publisher: Redis.RedisClient;
-  private subscriber: Redis.RedisClient;
+  private publisher: RedisClientType;
+  private subscriber: RedisClientType;
   private handlers: Map<string, Set<(message: any) => void>>;
-  
-  // Promisified Redis functions
-  private asyncGet: (key: string) => Promise<string | null>;
-  private asyncSet: (key: string, value: string) => Promise<string>;
-  private asyncDel: (key: string) => Promise<number>;
+  private isConnected: boolean = false;
 
   private constructor() {
-    const redisOptions: Redis.ClientOpts = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      password: process.env.REDIS_PASSWORD || undefined,
-      retry_strategy: (options) => {
-        if (options.error && options.error.code === 'ECONNREFUSED') {
-          // End reconnection attempts on ECONNREFUSED
-          return new Error('The server refused the connection');
+    const redisConfig = {
+      socket: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        reconnectStrategy: (retries: number) => {
+          if (retries > 10) {
+            console.error('Redis connection failed after 10 retries');
+            return new Error('Retry time exhausted');
+          }
+          // Reconnect after increasing delay
+          return Math.min(retries * 100, 3000);
         }
-        if (options.total_retry_time > 1000 * 60 * 60) {
-          // End reconnection attempts after 1 hour
-          return new Error('Retry time exhausted');
-        }
-        if (options.attempt > 10) {
-          // End reconnection attempts after 10 attempts
-          return undefined;
-        }
-        // Reconnect after increasing delay
-        return Math.min(options.attempt * 100, 3000);
-      }
+      },
+      password: process.env.REDIS_PASSWORD || undefined
     };
 
-    this.publisher = Redis.createClient(redisOptions);
-    this.subscriber = Redis.createClient(redisOptions);
+    this.publisher = createClient(redisConfig);
+    this.subscriber = createClient(redisConfig);
     this.handlers = new Map();
 
-    // Promisify Redis methods
-    this.asyncGet = promisify(this.publisher.get).bind(this.publisher);
-    this.asyncSet = promisify(this.publisher.set).bind(this.publisher);
-    this.asyncDel = promisify(this.publisher.del).bind(this.publisher);
+    this.setupEventHandlers();
+    this.initializeConnections();
+  }
 
-    this.subscriber.on('message', (channel, message) => {
-      try {
-        const parsedMessage = JSON.parse(message);
-        const handlers = this.handlers.get(channel);
-        if (handlers) {
-          handlers.forEach(handler => handler(parsedMessage));
-        }
-      } catch (error) {
-        console.error(`Error handling message from channel ${channel}:`, error);
-      }
-    });
-
-    // Log Redis errors
-    this.publisher.on('error', (error) => {
+  private setupEventHandlers(): void {
+    // Publisher error handling
+    this.publisher.on('error', (error: Error) => {
       console.error('Redis Publisher Error:', error);
     });
 
-    this.subscriber.on('error', (error) => {
+    // Subscriber error handling
+    this.subscriber.on('error', (error: Error) => {
       console.error('Redis Subscriber Error:', error);
     });
+
+    // Connection event handlers
+    this.publisher.on('connect', () => {
+      console.log('Redis publisher connected');
+    });
+
+    this.subscriber.on('connect', () => {
+      console.log('Redis subscriber connected');
+    });
+
+    this.publisher.on('end', () => {
+      console.log('Redis publisher connection ended');
+      this.isConnected = false;
+    });
+
+    this.subscriber.on('end', () => {
+      console.log('Redis subscriber connection ended');
+    });
+  }
+
+  private async initializeConnections(): Promise<void> {
+    try {
+      await Promise.all([
+        this.publisher.connect(),
+        this.subscriber.connect()
+      ]);
+      this.isConnected = true;
+      console.log('Redis clients connected successfully');
+    } catch (error) {
+      console.error('Failed to connect to Redis:', error);
+    }
   }
 
   public static getInstance(): RedisService {
@@ -84,11 +93,27 @@ class RedisService {
    * @param channel Channel to subscribe to
    * @param handler Handler function to process received messages
    */
-  public subscribe(channel: string, handler: (message: any) => void): void {
+  public async subscribe(channel: string, handler: (message: any) => void): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Redis client not connected');
+    }
+
     if (!this.handlers.has(channel)) {
       this.handlers.set(channel, new Set());
-      this.subscriber.subscribe(channel);
+      
+      await this.subscriber.subscribe(channel, (message: string) => {
+        try {
+          const parsedMessage = JSON.parse(message);
+          const handlers = this.handlers.get(channel);
+          if (handlers) {
+            handlers.forEach(handler => handler(parsedMessage));
+          }
+        } catch (error) {
+          console.error(`Error handling message from channel ${channel}:`, error);
+        }
+      });
     }
+    
     this.handlers.get(channel)!.add(handler);
   }
 
@@ -97,7 +122,7 @@ class RedisService {
    * @param channel Channel to unsubscribe from
    * @param handler Specific handler to remove (if none provided, all handlers for channel will be removed)
    */
-  public unsubscribe(channel: string, handler?: (message: any) => void): void {
+  public async unsubscribe(channel: string, handler?: (message: any) => void): Promise<void> {
     if (!this.handlers.has(channel)) {
       return;
     }
@@ -106,11 +131,11 @@ class RedisService {
       this.handlers.get(channel)!.delete(handler);
       if (this.handlers.get(channel)!.size === 0) {
         this.handlers.delete(channel);
-        this.subscriber.unsubscribe(channel);
+        await this.subscriber.unsubscribe(channel);
       }
     } else {
       this.handlers.delete(channel);
-      this.subscriber.unsubscribe(channel);
+      await this.subscriber.unsubscribe(channel);
     }
   }
 
@@ -119,8 +144,17 @@ class RedisService {
    * @param channel Channel to publish to
    * @param message Message to publish
    */
-  public publish(channel: string, message: any): void {
-    this.publisher.publish(channel, JSON.stringify(message));
+  public async publish(channel: string, message: any): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Redis client not connected');
+    }
+
+    try {
+      await this.publisher.publish(channel, JSON.stringify(message));
+    } catch (error) {
+      console.error('Failed to publish message:', error);
+      throw error;
+    }
   }
 
   /**
@@ -130,18 +164,23 @@ class RedisService {
    * @param expirySeconds Optional TTL in seconds
    */
   public async set(key: string, value: any, expirySeconds?: number): Promise<string> {
+    if (!this.isConnected) {
+      throw new Error('Redis client not connected');
+    }
+
     const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
     
-    if (expirySeconds) {
-      return new Promise((resolve, reject) => {
-        this.publisher.set(key, stringValue, 'EX', expirySeconds, (err, reply) => {
-          if (err) reject(err);
-          else resolve(reply);
-        });
-      });
+    try {
+      if (expirySeconds) {
+        await this.publisher.setEx(key, expirySeconds, stringValue);
+        return 'OK';
+      } else {
+        return await this.publisher.set(key, stringValue) || 'OK';
+      }
+    } catch (error) {
+      console.error('Failed to set value:', error);
+      throw error;
     }
-    
-    return this.asyncSet(key, stringValue);
   }
 
   /**
@@ -150,16 +189,25 @@ class RedisService {
    * @param parse Whether to parse the value as JSON
    */
   public async get(key: string, parse = false): Promise<any> {
-    const value = await this.asyncGet(key);
-    if (value && parse) {
-      try {
-        return JSON.parse(value);
-      } catch (error) {
-        console.error(`Error parsing Redis value for key ${key}:`, error);
-        return value;
-      }
+    if (!this.isConnected) {
+      throw new Error('Redis client not connected');
     }
-    return value;
+
+    try {
+      const value = await this.publisher.get(key);
+      if (value && parse) {
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          console.error(`Error parsing Redis value for key ${key}:`, error);
+          return value;
+        }
+      }
+      return value;
+    } catch (error) {
+      console.error('Failed to get value:', error);
+      throw error;
+    }
   }
 
   /**
@@ -167,18 +215,39 @@ class RedisService {
    * @param key Redis key to delete
    */
   public async delete(key: string): Promise<number> {
-    return this.asyncDel(key);
+    if (!this.isConnected) {
+      throw new Error('Redis client not connected');
+    }
+
+    try {
+      return await this.publisher.del(key);
+    } catch (error) {
+      console.error('Failed to delete key:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if Redis is connected
+   */
+  public isClientConnected(): boolean {
+    return this.isConnected;
   }
 
   /**
    * Close Redis connections
    */
   public async disconnect(): Promise<void> {
-    return new Promise((resolve) => {
-      this.publisher.quit();
-      this.subscriber.quit();
-      resolve();
-    });
+    try {
+      await Promise.all([
+        this.publisher.quit(),
+        this.subscriber.quit()
+      ]);
+      this.isConnected = false;
+      console.log('Redis clients disconnected');
+    } catch (error) {
+      console.error('Error disconnecting Redis clients:', error);
+    }
   }
 }
 
