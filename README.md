@@ -262,16 +262,6 @@ Response: {
 - Natural trade flow patterns
 - Dynamic market conditions
 
-## 🌐 Production Deployment
-
-For deployment to `sanketr.com/projects/exchange`:
-
-1. **Backend deployment** (Railway/Vercel/Heroku)
-2. **Frontend build** and static hosting
-3. **Environment configuration** for production APIs
-4. **CORS setup** for domain access
-
-See deployment guide in the documentation for detailed instructions.
 
 ## 📈 Market Simulation Details
 
